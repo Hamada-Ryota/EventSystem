@@ -6,6 +6,8 @@ use App\Models\Event;
 use \App\Models\Category;
 use \App\Models\Status;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class EventController extends Controller
 {
@@ -14,13 +16,17 @@ class EventController extends Controller
      */
     public function index()
     {
-        // Eventモデルを使って、全イベントデータを取得
         $events = Event::all();
 
-        // events.index というビューにデータを渡して表示
+        foreach ($events as $event) {
+            $event->joined_count = DB::table('event_user')
+                ->where('event_id', $event->id)
+                ->where('is_canceled', false)
+                ->count();
+        }
+
         return view('events.index', compact('events'));
     }
-
     /**
      * Show the form for creating a new resource.
      */
@@ -70,9 +76,16 @@ class EventController extends Controller
      */
     public function show(Event $event)
     {
-        return view('events.show', compact('event'));
-    }
+        // 参加者リスト取得（キャンセルしていない人だけ）
+        $participants = DB::table('event_user')
+            ->join('users', 'event_user.user_id', '=', 'users.id')
+            ->where('event_user.event_id', $event->id)
+            ->where('event_user.is_canceled', false)
+            ->select('users.name', 'event_user.registered_at')
+            ->get();
 
+        return view('events.show', compact('event', 'participants'));
+    }
     /**
      * Show the form for editing the specified resource.
      */
@@ -117,5 +130,77 @@ class EventController extends Controller
         $event->delete();
 
         return redirect()->route('events.index')->with('success', 'イベントを削除しました！');
+    }
+
+    //一般ユーザーの参加登録処理
+    public function join($id)
+    {
+        $event = Event::findOrFail($id);
+        $user = auth()->user();
+
+        // すでに登録しているか確認
+        $alreadyJoined = DB::table('event_user')
+            ->where('event_id', $event->id)
+            ->where('user_id', $user->id)
+            ->where('is_canceled', false)
+            ->exists();
+
+        if ($alreadyJoined) {
+            return redirect()->back()->with('error', 'すでに参加登録済みです。');
+        }
+
+        // 登録処理
+        DB::table('event_user')->insert([
+            'event_id' => $event->id,
+            'user_id' => $user->id,
+            'registered_at' => Carbon::now(),
+            'is_canceled' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->back()->with('success', 'イベントに参加登録しました！');
+    }
+
+    //一般ユーザーでイベントキャンセル
+    public function cancel($id)
+    {
+        $event = Event::findOrFail($id);
+        $user = auth()->user();
+
+        DB::table('event_user')
+            ->where('event_id', $event->id)
+            ->where('user_id', $user->id)
+            ->where('is_canceled', false)
+            ->update([
+                'is_canceled' => true,
+                'canceled_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        return redirect()->back()->with('success', '参加をキャンセルしました。');
+    }
+
+    public function getEvents(Request $request)
+    {
+        $query = Event::query();
+
+        if ($request->has('category') && $request->category) {
+            $query->where('category_id', $request->category);
+        }
+
+        if ($request->has('date') && $request->date) {
+            $query->whereDate('date', $request->date);
+        }
+
+        $events = $query->get()->map(function ($event) {
+            return [
+                'title' => $event->title,
+                'start' => $event->date, // ✅ カレンダー用には「start」として返す
+                'id' => $event->id,
+            ];
+        });
+
+        return response()->json($events);
     }
 }

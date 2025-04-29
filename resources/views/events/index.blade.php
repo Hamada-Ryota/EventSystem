@@ -14,12 +14,15 @@
                             {{ session('success') }}
                         </div>
                     @endif
-                    <div style="margin-bottom: 20px;">
-                        <a href="{{ route('events.create') }}"
-                            style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
-                            新しいイベントを作成する
-                        </a>
-                    </div>
+                    @if (auth()->check() && auth()->user()->role_id == 2)
+                        {{-- 主催者だけ --}}
+                        <div style="margin-bottom: 20px;">
+                            <a href="{{ route('events.create') }}"
+                                class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+                                新しいイベントを作成する
+                            </a>
+                        </div>
+                    @endif
                     <table border="1">
                         <thead>
                             <tr>
@@ -27,7 +30,10 @@
                                 <th>タイトル</th>
                                 <th>開催日</th>
                                 <th>場所</th>
-                                <th>操作</th>
+                                @if (auth()->check() && auth()->user()->role_id == 2)
+                                    <th>操作</th>
+                                @endif
+                                <th style="padding: 8px; border: 1px solid #ccc;">参加者</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -39,19 +45,23 @@
                                     <td>{{ $event->location }}</td>
                                     <td>
                                         <div class="flex space-x-4 justify-center">
-                                            {{-- 編集リンク --}}
-                                            <a href="{{ route('events.edit', $event->id) }}"
-                                                class="text-yellow-500 hover:underline">
-                                                編集
-                                            </a>
+                                            @if (auth()->check() && auth()->user()->role_id == 2)
+                                                {{-- 主催者だけ --}}
+                                                <div class="flex space-x-2">
+                                                    {{-- 編集 --}}
+                                                    <a href="{{ route('events.edit', $event->id) }}"
+                                                        class="text-yellow-500 hover:underline">編集</a>
 
-                                            {{-- 削除リンク --}}
-                                            <a href="{{ route('events.destroy', $event->id) }}"
-                                                onclick="event.preventDefault(); if (confirm('本当に削除しますか？')) { document.getElementById('delete-form-{{ $event->id }}').submit(); }"
-                                                class="text-red-500 hover:underline">
-                                                削除
-                                            </a>
-
+                                                    {{-- 削除 --}}
+                                                    <form action="{{ route('events.destroy', $event->id) }}"
+                                                        method="POST" onsubmit="return confirm('本当に削除しますか？');">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit"
+                                                            class="text-red-500 hover:underline">削除</button>
+                                                    </form>
+                                                </div>
+                                            @endif
                                             {{-- 削除用の隠しフォーム --}}
                                             <form id="delete-form-{{ $event->id }}"
                                                 action="{{ route('events.destroy', $event->id) }}" method="POST"
@@ -60,6 +70,9 @@
                                                 @method('DELETE')
                                             </form>
                                         </div>
+                                    </td>
+                                    <td style="padding: 8px; border: 1px solid #ccc;">
+                                        {{ $event->joined_count }} / {{ $event->capacity }} 人
                                     </td>
                                 </tr>
                             @endforeach

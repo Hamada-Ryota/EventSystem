@@ -20,4 +20,14 @@ class Event extends Model
         'status_id',
         'organizer_id',
     ];
+
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    public function status()
+    {
+        return $this->belongsTo(Status::class);
+    }
 }

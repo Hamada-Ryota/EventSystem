@@ -30,14 +30,20 @@ class AuthenticatedSessionController extends Controller
 
     $user = Auth::user();
 
-    if ($user->role_id == 1) { // 一般ユーザー
-        return redirect('/home');
-    } elseif ($user->role_id == 2) { // イベント主催者
-        return redirect('/events');
-    } elseif ($user->role_id == 3) { // 管理者
-        return redirect('/admin/categories');
-    } else {
-        return redirect('/'); // 万が一ロールが無効な場合
+    // ロール別リダイレクト
+    if ($user->role_id === 3) {
+        return redirect()->route('admin.events.index');
+    } elseif ($user->role_id === 2) {
+        return redirect()->route('events.index'); // 主催者：イベント一覧へ
+    } elseif ($user->role_id === 1) {
+        // 一般ユーザー：最初のイベント詳細ページへ
+        $firstEvent = \App\Models\Event::first();
+
+        if ($firstEvent) {
+            return redirect()->route('events.show', $firstEvent->id);
+        } else {
+            return redirect('/')->with('error', 'イベントが存在しません。');
+        }
     }
 }
 

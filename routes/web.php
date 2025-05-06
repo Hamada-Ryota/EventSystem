@@ -8,10 +8,13 @@ use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\MypageController;
+use App\Http\Controllers\EventReviewController;
 
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::get('/events/upcoming', [EventController::class, 'upcomingEvents'])->name('events.upcoming');
 
 // 一般ユーザー
 Route::middleware(['auth', 'role:1'])->group(function () {
@@ -60,4 +63,38 @@ Route::get('/dashboard', fn() => view('dashboard'))->middleware(['auth', 'verifi
 Route::get('/calendar', [CalendarController::class, 'index'])->middleware('auth')->name('calendar.index');
 Route::get('/api/events', [EventController::class, 'getEvents'])->middleware('auth'); // FullCalendarが使うAPI
 
-require __DIR__.'/auth.php';
+//CSV
+Route::get('/events/{event}/export', [EventController::class, 'exportCsv'])
+    ->middleware('auth')
+    ->name('events.export');
+
+//通知
+Route::get('/notifications', function () {
+    $user = auth()->user();
+
+    // 未読通知を全て既読に
+    $user->unreadNotifications->markAsRead();
+
+    $notifications = $user->notifications;
+
+    return view('notifications.index', compact('notifications'));
+})->middleware('auth')->name('notifications.index');
+
+//ダッシュボード
+Route::middleware(['auth', 'role:3'])->prefix('admin')->group(function () {
+    Route::get('dashboard', [App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('admin.dashboard');
+});
+
+//レビュー
+Route::post('/events/{event}/reviews', [EventReviewController::class, 'store'])
+    ->middleware('auth')
+    ->name('events.reviews.store');
+// routes/web.php
+
+Route::middleware('auth')->group(function () {
+    Route::patch('/reviews/{review}', [EventReviewController::class, 'update'])->name('reviews.update');
+    Route::delete('/reviews/{review}', [EventReviewController::class, 'destroy'])->name('reviews.destroy');
+});
+
+
+require __DIR__ . '/auth.php';

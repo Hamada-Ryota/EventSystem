@@ -8,6 +8,10 @@ use \App\Models\Status;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Notifications\EventJoinedNotification;
+use App\Notifications\EventCanceledNotification;
+use App\Notifications\EventReminder;
 
 class EventController extends Controller
 {
@@ -159,6 +163,9 @@ class EventController extends Controller
             'updated_at' => now(),
         ]);
 
+        // 通知送信（1回だけ）
+        $user->notify(new EventJoinedNotification($event));
+
         return redirect()->back()->with('success', 'イベントに参加登録しました！');
     }
 
@@ -178,6 +185,8 @@ class EventController extends Controller
                 'updated_at' => now(),
             ]);
 
+        $user->notify(new EventCanceledNotification($event->title));
+
         return redirect()->back()->with('success', '参加をキャンセルしました。');
     }
 
@@ -185,22 +194,76 @@ class EventController extends Controller
     {
         $query = Event::query();
 
-        if ($request->has('category') && $request->category) {
+        // カテゴリでフィルター
+        if ($request->filled('category')) {
             $query->where('category_id', $request->category);
         }
 
-        if ($request->has('date') && $request->date) {
-            $query->whereDate('date', $request->date);
+        // 開始日フィルター
+        if ($request->filled('start_date')) {
+            $query->whereDate('date', '>=', $request->start_date);
+        }
+
+        // 終了日フィルター
+        if ($request->filled('end_date')) {
+            $query->whereDate('date', '<=', $request->end_date);
+        }
+
+        // 場所フィルター（部分一致）
+        if ($request->filled('location')) {
+            $query->where('location', 'like', '%' . $request->location . '%');
         }
 
         $events = $query->get()->map(function ($event) {
             return [
-                'title' => $event->title,
-                'start' => $event->date, // ✅ カレンダー用には「start」として返す
                 'id' => $event->id,
+                'title' => $event->title,
+                'start' => Carbon::parse($event->date)->toIso8601String(),
+                'allDay' => true,
+                'url' => route('events.show', $event->id),
             ];
         });
 
-        return response()->json($events);
+        return response()->json($events, 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function exportCsv(Event $event): StreamedResponse
+    {
+        $headers = [
+            "Content-type" => "text/csv; charset=UTF-8",
+            "Content-Disposition" => "attachment; filename=event_{$event->id}_participants.csv",
+        ];
+
+        $callback = function () use ($event) {
+            $handle = fopen('php://output', 'w');
+
+            // UTF-8 BOM 追加（Excel 用）
+            fprintf($handle, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+            // ヘッダー行
+            fputcsv($handle, ['名前', '登録日時']);
+
+            // データ行
+            $participants = DB::table('event_user')
+                ->join('users', 'event_user.user_id', '=', 'users.id')
+                ->where('event_user.event_id', $event->id)
+                ->where('event_user.is_canceled', false)
+                ->select('users.name', 'event_user.registered_at')
+                ->get();
+
+            foreach ($participants as $participant) {
+                fputcsv($handle, [$participant->name, $participant->registered_at]);
+            }
+
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function upcomingEvents()
+    {
+        $events = Event::upcoming()->get();
+        return view('events.upcoming', compact('events'));
     }
 }

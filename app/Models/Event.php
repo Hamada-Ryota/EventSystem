@@ -30,4 +30,19 @@ class Event extends Model
     {
         return $this->belongsTo(Status::class);
     }
+
+    public function reviews()
+    {
+        return $this->hasMany(EventReview::class);
+    }
+
+    public function averageRating(): float
+    {
+        return round($this->reviews()->avg('rating') ?? 0, 1);
+    }
+
+    public function scopeUpcoming($query)
+    {
+        return $query->where('date', '>=', now())->orderBy('date');
+    }
 }

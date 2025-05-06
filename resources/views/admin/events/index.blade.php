@@ -5,20 +5,6 @@
         </h2>
     </x-slot>
 
-    <div style="margin-bottom: 20px;">
-        <a href="{{ route('users.index') }}"
-            style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
-            ユーザー管理へ
-        </a>
-    </div>
-
-    <div style="margin-bottom: 20px;">
-        <a href="{{ route('admin.categories.index') }}"
-            style="background-color: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
-            カテゴリ管理へ
-        </a>
-    </div>
-
     <div class="py-6">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">

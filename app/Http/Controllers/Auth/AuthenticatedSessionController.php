@@ -36,14 +36,7 @@ class AuthenticatedSessionController extends Controller
     } elseif ($user->role_id === 2) {
         return redirect()->route('events.index'); // 主催者：イベント一覧へ
     } elseif ($user->role_id === 1) {
-        // 一般ユーザー：最初のイベント詳細ページへ
-        $firstEvent = \App\Models\Event::first();
-
-        if ($firstEvent) {
-            return redirect()->route('events.show', $firstEvent->id);
-        } else {
-            return redirect('/')->with('error', 'イベントが存在しません。');
-        }
+        return redirect()->route('calendar.index');
     }
 }
 

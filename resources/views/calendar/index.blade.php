@@ -4,21 +4,17 @@
             イベントカレンダー
         </h2>
     </x-slot>
-    <form id="filter-form">
-        <label for="category">カテゴリ:</label>
-        <select id="category" name="category">
+    <form method="GET" style="margin: 20px auto; max-width: 800px;">
+        <label>カテゴリ:</label>
+        <select name="category" onchange="this.form.submit()">
             <option value="">すべて</option>
-            @foreach ($categories as $category)
-                <option value="{{ $category->id }}">{{ $category->name }}</option>
+            @foreach (\App\Models\Category::all() as $category)
+                <option value="{{ $category->id }}" {{ request('category') == $category->id ? 'selected' : '' }}>
+                    {{ $category->name }}
+                </option>
             @endforeach
         </select>
-
-        <label for="date">日付:</label>
-        <input type="date" id="date" name="date">
-
-        <button type="submit">フィルター</button>
     </form>
-
     <div id="app">
         <calendar-component></calendar-component>
     </div>
